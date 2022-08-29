@@ -1730,7 +1730,6 @@ func TestRepository_Update_saveHasMany(t *testing.T) {
 
 	adapter.On("Begin").Return(nil).Once()
 	adapter.On("Update", From("users").Where(Eq("id", 10)), "id", mock.Anything).Return(1, nil).Once()
-	adapter.On("Delete", From("user_roles").Where(Eq("user_id", 10))).Return(1, nil).Once()
 	adapter.On("InsertAll", From("user_roles"), mock.Anything, mock.Anything, OnConflict{}).Return([]interface{}(nil), nil).Once()
 	adapter.On("Commit").Return(nil).Once()
 
@@ -1789,7 +1788,7 @@ func TestRepository_Update_saveHasManyError(t *testing.T) {
 
 	adapter.On("Begin").Return(nil).Once()
 	adapter.On("Update", From("users").Where(Eq("id", 10)), "id", mock.Anything).Return(1, nil).Once()
-	adapter.On("Delete", From("user_roles").Where(Eq("user_id", 10))).Return(0, err).Once()
+	adapter.On("InsertAll", From("user_roles"), mock.Anything, mock.Anything, OnConflict{}).Return([]interface{}(nil), err).Once()
 	adapter.On("Rollback").Return(nil).Once()
 
 	assert.Equal(t, err, repo.Update(context.TODO(), &user))
@@ -2510,72 +2509,6 @@ func TestRepository_saveHasMany_deleteError(t *testing.T) {
 	)
 
 	adapter.On("Delete", q.Where(Eq("user_id", 1).AndIn("id", 1, 2))).Return(0, err).Once()
-
-	assert.Equal(t, err, repo.(*repository).saveHasMany(cw, doc, &mutation, false))
-
-	adapter.AssertExpectations(t)
-}
-
-func TestRepository_saveHasMany_replace(t *testing.T) {
-	var (
-		adapter = &testAdapter{}
-		cw      = fetchContext(context.TODO(), adapter)
-		repo    = New(adapter)
-		user    = User{
-			ID: 1,
-			Emails: []Email{
-				{Email: "email3@gmail.com"},
-				{Email: "email4@gmail.com"},
-				{Email: "email5@gmail.com"},
-			},
-		}
-		doc      = NewDocument(&user)
-		mutation = Apply(doc, NewStructset(doc, false))
-		mutates  = []map[string]Mutate{
-			{"user_id": Set("user_id", user.ID), "email": Set("email", "email3@gmail.com")},
-			{"user_id": Set("user_id", user.ID), "email": Set("email", "email4@gmail.com")},
-			{"user_id": Set("user_id", user.ID), "email": Set("email", "email5@gmail.com")},
-		}
-		q = Build("emails")
-	)
-
-	adapter.On("Delete", q.Where(Eq("user_id", 1))).Return(1, nil).Once()
-	adapter.On("InsertAll", q, mock.Anything, mutates, OnConflict{}).Return([]interface{}{3, 4, 5}, nil).Once()
-
-	assert.Nil(t, repo.(*repository).saveHasMany(cw, doc, &mutation, false))
-	assert.Equal(t, User{
-		ID:        1,
-		CreatedAt: Now(),
-		UpdatedAt: Now(),
-		Emails: []Email{
-			{ID: 3, UserID: 1, Email: "email3@gmail.com"},
-			{ID: 4, UserID: 1, Email: "email4@gmail.com"},
-			{ID: 5, UserID: 1, Email: "email5@gmail.com"},
-		},
-	}, user)
-
-	adapter.AssertExpectations(t)
-}
-
-func TestRepository_saveHasMany_replaceDeleteAnyError(t *testing.T) {
-	var (
-		adapter = &testAdapter{}
-		cw      = fetchContext(context.TODO(), adapter)
-		repo    = New(adapter)
-		user    = User{
-			ID: 1,
-			Emails: []Email{
-				{ID: 1, Email: "email1@gmail.com"},
-				{ID: 2, Email: "email2@gmail.com"},
-			},
-		}
-		doc      = NewDocument(&user)
-		mutation = Apply(doc, NewStructset(doc, false))
-		q        = Build("emails")
-		err      = errors.New("delete all error")
-	)
-
-	adapter.On("Delete", q.Where(Eq("user_id", 1))).Return(0, err).Once()
 
 	assert.Equal(t, err, repo.(*repository).saveHasMany(cw, doc, &mutation, false))
 
