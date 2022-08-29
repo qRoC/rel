@@ -694,81 +694,88 @@ func (r repository) saveHasMany(cw contextWrapper, doc *Document, mutation *Muta
 			panic("rel: invalid mutator")
 		}
 
-		if !insertion {
-			var (
-				filter = Eq(fField, rValue)
-			)
+		if !insertion && len(deletedIDs) > 0 {
+			filter := Eq(fField, rValue).AndIn(col.PrimaryField(), deletedIDs...)
 
-			if deletedIDs == nil {
-				// if it's nil, then clear old association (used by structset).
-				if _, err := r.deleteAny(cw, col.meta.flag, Build(table, filter).Populate(col.Meta())); err != nil {
-					return err
-				}
-			} else if len(deletedIDs) > 0 {
-				filter = filter.AndIn(col.PrimaryField(), deletedIDs...)
-				if _, err := r.deleteAny(cw, col.meta.flag, Build(table, filter).Populate(col.Meta())); err != nil {
-					return err
-				}
+			if _, err := r.deleteAny(cw, col.meta.flag, Build(table, filter).Populate(col.Meta())); err != nil {
+				return err
 			}
 		}
 
 		// update and filter for bulk insertion.
-		updateCount := 0
+		insertOffset := 0
 		for i := range muts {
-			var (
-				assocDoc = col.Get(i)
-			)
+			assocDoc := col.Get(i)
 
-			// When deleted IDs is nil, it's assumed that association will be replaced.
-			// hence any update request is ignored here.
+			// no changes
+			if len(muts[i].Mutates) == 0 {
+				if insertOffset != i {
+					col.Swap(insertOffset, i)
+					muts[i], muts[insertOffset] = muts[insertOffset], muts[i]
+				}
+				insertOffset++
+
+				continue
+			}
+
 			var fValue, _ = assocDoc.Value(fField)
-			if deletedIDs != nil && !isZero(assocDoc.PrimaryValue()) && !isZero(fValue) {
-				var (
-					filter = filterDocument(assocDoc).AndEq(fField, rValue)
-				)
 
-				if rValue != fValue {
-					return ConstraintError{
-						Key:  fField,
-						Type: ForeignKeyConstraint,
-						Err:  errors.New("rel: inconsistent has many ref and fk"),
+			// if any field of primary key is zero or mut does not contain value
+			isNewRecord := true
+			for _, pField := range assocDoc.PrimaryFields() {
+				if _, ok := muts[i].Mutates[pField]; !ok {
+					pValue, _ := assocDoc.Value(pField)
+					if !isZero(pValue) {
+						isNewRecord = false
 					}
 				}
+			}
 
-				if updateCount < i {
-					col.Swap(updateCount, i)
-					muts[i], muts[updateCount] = muts[updateCount], muts[i]
-				}
-
-				if !muts[updateCount].IsEmpty() {
-					if err := r.update(cw, assocDoc, muts[updateCount], filter); err != nil {
-						return err
-					}
-				}
-
-				updateCount++
-			} else {
+			if isNewRecord {
 				muts[i].Add(Set(fField, rValue))
 				assocDoc.SetValue(fField, rValue)
+
+				continue
 			}
+
+			if rValue != fValue {
+				return ConstraintError{
+					Key:  fField,
+					Type: ForeignKeyConstraint,
+					Err:  errors.New("rel: inconsistent has many ref and fk"),
+				}
+			}
+
+			if !muts[i].IsEmpty() {
+				filter := filterDocument(assocDoc).AndEq(fField, rValue)
+
+				if err := r.update(cw, assocDoc, muts[i], filter); err != nil {
+					return err
+				}
+			}
+
+			if insertOffset != i {
+				col.Swap(insertOffset, i)
+				muts[i], muts[insertOffset] = muts[insertOffset], muts[i]
+			}
+			insertOffset++
 		}
 
-		if len(muts)-updateCount > 0 {
+		if len(muts)-insertOffset > 0 {
 			var (
 				insertMuts = muts
 				insertCol  = col
 			)
 
-			if updateCount > 0 {
-				insertMuts = muts[updateCount:]
-				insertCol = col.Slice(updateCount, len(muts))
+			if insertOffset > 0 {
+				insertMuts = muts[insertOffset:]
+				insertCol = col.Slice(insertOffset, len(muts))
 			}
 
 			if err := r.insertAll(cw, insertCol, insertMuts); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	return nil
