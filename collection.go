@@ -7,7 +7,8 @@ import (
 type slice interface {
 	table
 	Reset()
-	Add() *Document
+	NewDocument() *Document
+	Append(doc *Document)
 	Get(index int) *Document
 	Len() int
 	Meta() DocumentMeta
@@ -15,7 +16,7 @@ type slice interface {
 
 // Collection provides an abstraction over reflect to easily works with slice for database purpose.
 type Collection struct {
-	v       interface{}
+	v       any
 	rv      reflect.Value
 	rt      reflect.Type
 	meta    DocumentMeta
@@ -57,21 +58,21 @@ func (c Collection) PrimaryField() string {
 
 // PrimaryValues of collection.
 // Returned value will be interface of slice interface.
-func (c Collection) PrimaryValues() []interface{} {
+func (c Collection) PrimaryValues() []any {
 	if p, ok := c.v.(primary); ok {
 		return p.PrimaryValues()
 	}
 
 	var (
 		index   = c.meta.primaryIndex
-		pValues = make([]interface{}, len(c.PrimaryFields()))
+		pValues = make([]any, len(c.PrimaryFields()))
 	)
 
 	if index != nil {
 		for i := range index {
 			var (
 				idxLen = c.rv.Len()
-				values = make([]interface{}, 0, idxLen)
+				values = make([]any, 0, idxLen)
 			)
 
 			for j := 0; j < idxLen; j++ {
@@ -85,7 +86,7 @@ func (c Collection) PrimaryValues() []interface{} {
 	} else {
 		// using interface.
 		var (
-			tmp = make([][]interface{}, len(pValues))
+			tmp = make([][]any, len(pValues))
 		)
 
 		for i := 0; i < c.rv.Len(); i++ {
@@ -108,7 +109,7 @@ func (c Collection) PrimaryValues() []interface{} {
 
 // PrimaryValue of this document.
 // panic if document uses composite key.
-func (c Collection) PrimaryValue() interface{} {
+func (c Collection) PrimaryValue() any {
 	if values := c.PrimaryValues(); len(values) == 1 {
 		return values[0]
 	}
@@ -142,19 +143,22 @@ func (c Collection) Reset() {
 
 // Add new document into collection.
 func (c Collection) Add() *Document {
-	var (
-		index = c.Len()
-		typ   = c.rt.Elem()
-		drv   = reflect.Zero(typ)
-	)
+	c.Append(c.NewDocument())
+	return c.Get(c.Len() - 1)
+}
 
-	if typ.Kind() == reflect.Ptr && drv.IsNil() {
-		drv = reflect.New(drv.Type().Elem())
+// NewDocument returns new document with zero values.
+func (c Collection) NewDocument() *Document {
+	return newZeroDocument(c.rt.Elem())
+}
+
+// Append new document into collection.
+func (c Collection) Append(doc *Document) {
+	if c.rt.Elem().Kind() == reflect.Ptr {
+		c.rv.Set(reflect.Append(c.rv, doc.rv.Addr()))
+	} else {
+		c.rv.Set(reflect.Append(c.rv, doc.rv))
 	}
-
-	c.rv.Set(reflect.Append(c.rv, drv))
-
-	return NewDocument(c.rvIndex(index).Addr())
 }
 
 // Truncate collection.
@@ -178,8 +182,8 @@ func (c Collection) Swap(i, j int) {
 
 // NewCollection used to create abstraction to work with slice.
 // COllection can be created using interface or reflect.Value.
-func NewCollection(records interface{}, readonly ...bool) *Collection {
-	switch v := records.(type) {
+func NewCollection(entities any, readonly ...bool) *Collection {
+	switch v := entities.(type) {
 	case *Collection:
 		return v
 	case reflect.Value:
@@ -193,7 +197,7 @@ func NewCollection(records interface{}, readonly ...bool) *Collection {
 	}
 }
 
-func newCollection(v interface{}, rv reflect.Value, readonly bool) *Collection {
+func newCollection(v any, rv reflect.Value, readonly bool) *Collection {
 	var (
 		rt = rv.Type()
 	)

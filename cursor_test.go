@@ -31,15 +31,15 @@ func (tc *testCursor) Next() bool {
 	return ret.Get(0).(bool)
 }
 
-func (tc *testCursor) NopScanner() interface{} {
+func (tc *testCursor) NopScanner() any {
 	return &sql.RawBytes{}
 }
 
-func (tc *testCursor) Scan(scanners ...interface{}) error {
+func (tc *testCursor) Scan(scanners ...any) error {
 	ret := tc.Called(scanners...)
 
 	var err error
-	if fn, ok := ret.Get(0).(func(...interface{}) error); ok {
+	if fn, ok := ret.Get(0).(func(...any) error); ok {
 		err = fn(scanners...)
 	} else {
 		err = ret.Error(0)
@@ -48,19 +48,23 @@ func (tc *testCursor) Scan(scanners ...interface{}) error {
 	return err
 }
 
-func (tc *testCursor) MockScan(ret ...interface{}) *mock.Call {
-	args := make([]interface{}, len(ret))
+func (tc *testCursor) MockScan(ret ...any) *mock.Call {
+	args := make([]any, len(ret))
 	for i := 0; i < len(args); i++ {
 		args[i] = mock.Anything
 	}
 
 	return tc.On("Scan", args...).
-		Return(func(scanners ...interface{}) error {
+		Return(func(scanners ...any) error {
 			for i := 0; i < len(scanners); i++ {
 				if v, ok := scanners[i].(sql.Scanner); ok {
-					v.Scan(ret[i])
+					if err := v.Scan(ret[i]); err != nil {
+						return err
+					}
 				} else {
-					convertAssign(scanners[i], ret[i])
+					if err := convertAssign(scanners[i], ret[i]); err != nil {
+						return err
+					}
 				}
 			}
 
@@ -181,7 +185,7 @@ func TestScanMulti(t *testing.T) {
 		cur      = &testCursor{}
 		keyField = "id"
 		keyType  = reflect.TypeOf(0)
-		cols     = map[interface{}][]slice{
+		cols     = map[any][]slice{
 			10: {NewCollection(&users1), NewCollection(&users2)},
 			11: {NewCollection(&users3)},
 		}
@@ -192,8 +196,8 @@ func TestScanMulti(t *testing.T) {
 	cur.On("Fields").Return([]string{"id", "name", "age", "created_at", "updated_at"}, nil).Once()
 
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(10, "Del Piero", nil, now, nil).Times(3)
-	cur.MockScan(11, "Nedved", 46, now, now).Twice()
+	cur.MockScan(10, "Del Piero", nil, now, nil).Once()
+	cur.MockScan(11, "Nedved", 46, now, now).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, scanMulti(cur, keyField, keyType, cols))
@@ -227,7 +231,7 @@ func TestScanMulti_scanError(t *testing.T) {
 		cur      = &testCursor{}
 		keyField = "id"
 		keyType  = reflect.TypeOf(0)
-		cols     = map[interface{}][]slice{
+		cols     = map[any][]slice{
 			11: {NewCollection(&users)},
 		}
 		err = errors.New("scan error")
@@ -237,7 +241,6 @@ func TestScanMulti_scanError(t *testing.T) {
 	cur.On("Fields").Return([]string{"id", "name", "age", "created_at", "updated_at"}, nil).Once()
 
 	cur.On("Next").Return(true).Once()
-	cur.MockScan(11, "Nedved", 46, Now, Now).Once()
 	cur.On("Scan", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(err).Once()
 
 	assert.Equal(t, err, scanMulti(cur, keyField, keyType, cols))
@@ -250,7 +253,7 @@ func TestScanMulti_scanKeyError(t *testing.T) {
 		cur      = &testCursor{}
 		keyField = "id"
 		keyType  = reflect.TypeOf(0)
-		cols     = map[interface{}][]slice{
+		cols     = map[any][]slice{
 			11: {NewCollection(&users)},
 		}
 		err = errors.New("scan key error")
@@ -272,7 +275,7 @@ func TestScanMulti_keyFieldsNotExists(t *testing.T) {
 		cur      = &testCursor{}
 		keyField = "id"
 		keyType  = reflect.TypeOf(0)
-		cols     = map[interface{}][]slice{
+		cols     = map[any][]slice{
 			11: {NewCollection(&users)},
 		}
 	)
@@ -292,7 +295,7 @@ func TestScanMulti_fieldsError(t *testing.T) {
 		cur      = &testCursor{}
 		keyField = "id"
 		keyType  = reflect.TypeOf(0)
-		cols     = map[interface{}][]slice{
+		cols     = map[any][]slice{
 			11: {NewCollection(&users)},
 		}
 		err = errors.New("fields error")
@@ -311,7 +314,7 @@ func TestScanMulti_multipleTimes(t *testing.T) {
 		cur      = &testCursor{}
 		keyField = "id"
 		keyType  = reflect.TypeOf(0)
-		cols     = map[interface{}][]slice{
+		cols     = map[any][]slice{
 			10: {NewCollection(&users[0]), NewCollection(&users[1])},
 			11: {NewCollection(&users[2])},
 			12: {NewCollection(&users[3]), NewCollection(&users[4])},
@@ -324,8 +327,8 @@ func TestScanMulti_multipleTimes(t *testing.T) {
 	cur.On("Fields").Return([]string{"id", "name", "age", "created_at", "updated_at"}, nil).Once()
 
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(10, "Del Piero", nil, now, nil).Times(3)
-	cur.MockScan(11, "Nedved", 46, now, now).Twice()
+	cur.MockScan(10, "Del Piero", nil, now, nil).Once()
+	cur.MockScan(11, "Nedved", 46, now, now).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, scanMulti(cur, keyField, keyType, cols))
@@ -360,8 +363,8 @@ func TestScanMulti_multipleTimes(t *testing.T) {
 	cur.On("Fields").Return([]string{"id", "name", "age", "created_at", "updated_at"}, nil).Once()
 
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(12, "Linus Torvalds", 52, now, nil).Times(3)
-	cur.MockScan(13, "Tim Cook", 61, now, now).Twice()
+	cur.MockScan(12, "Linus Torvalds", 52, now, nil).Once()
+	cur.MockScan(13, "Tim Cook", 61, now, now).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, scanMulti(cur, keyField, keyType, cols))

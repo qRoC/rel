@@ -38,7 +38,7 @@ func TestMap(t *testing.T) {
 
 	userMutation.SetAssoc("transactions", transaction1Mutation, transaction2Mutation)
 	userMutation.SetAssoc("address", addressMutation)
-	userMutation.SetDeletedIDs("transactions", []interface{}{})
+	userMutation.SetDeletedIDs("transactions", []any{})
 
 	assert.Equal(t, userMutation, Apply(doc, data))
 	assert.Equal(t, User{
@@ -124,7 +124,7 @@ func TestMap_update(t *testing.T) {
 
 	userMutation.SetAssoc("transactions", transaction1Mutation, transaction2Mutation)
 	userMutation.SetAssoc("address", addressMutation)
-	userMutation.SetDeletedIDs("transactions", []interface{}{})
+	userMutation.SetDeletedIDs("transactions", []any{})
 
 	assert.Equal(t, userMutation, Apply(doc, data))
 	assert.Equal(t, User{
@@ -167,7 +167,7 @@ func TestMap_hasManyUpdateDeleteInsert(t *testing.T) {
 	)
 
 	userMutation.SetAssoc("transactions", transaction2Mutation, transaction1Mutation)
-	userMutation.SetDeletedIDs("transactions", []interface{}{2})
+	userMutation.SetDeletedIDs("transactions", []any{2})
 
 	assert.Equal(t, userMutation, Apply(doc, data))
 	assert.Equal(t, User{
@@ -193,7 +193,7 @@ func TestMap_hasManyUpdateNotLoaded(t *testing.T) {
 		}
 	)
 
-	assert.PanicsWithValue(t, "rel: cannot update has many assoc that is not loaded or doesn't belong to this record", func() {
+	assert.PanicsWithValue(t, "rel: cannot update has many assoc that is not loaded or doesn't belong to this entity", func() {
 		Apply(doc, data)
 	})
 }

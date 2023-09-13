@@ -15,8 +15,14 @@ func TestMust(t *testing.T) {
 	})
 }
 
+func TestMustTrue(t *testing.T) {
+	assert.Panics(t, func() {
+		mustTrue(false, "error")
+	})
+}
+
 func TestIsZero(t *testing.T) {
-	tests := []interface{}{
+	tests := []any{
 		nil,
 		false,
 		"",

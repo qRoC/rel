@@ -999,7 +999,7 @@ func TestRepository_Insert_saveHasMany(t *testing.T) {
 
 	adapter.On("Begin").Return(nil).Once()
 	adapter.On("Insert", From("users"), mock.Anything, OnConflict{}).Return(1, nil).Once()
-	adapter.On("InsertAll", From("user_roles"), mock.Anything, mock.Anything, OnConflict{}).Return([]interface{}(nil), nil).Once()
+	adapter.On("InsertAll", From("user_roles"), mock.Anything, mock.Anything, OnConflict{}).Return([]any(nil), nil).Once()
 	adapter.On("Commit").Return(nil).Once()
 
 	assert.Nil(t, repo.Insert(context.TODO(), &user))
@@ -1059,7 +1059,7 @@ func TestRepository_Insert_saveHasManyError(t *testing.T) {
 
 	adapter.On("Begin").Return(nil).Once()
 	adapter.On("Insert", From("users"), mock.Anything, OnConflict{}).Return(1, nil).Once()
-	adapter.On("InsertAll", From("user_roles"), mock.Anything, mock.Anything, OnConflict{}).Return([]interface{}{}, err).Once()
+	adapter.On("InsertAll", From("user_roles"), mock.Anything, mock.Anything, OnConflict{}).Return([]any{}, err).Once()
 	adapter.On("Rollback").Return(nil).Once()
 
 	assert.Equal(t, err, repo.Insert(context.TODO(), &user))
@@ -1174,7 +1174,7 @@ func TestRepository_InsertAll(t *testing.T) {
 		}
 	)
 
-	adapter.On("InsertAll", From("users"), mock.Anything, mutates, OnConflict{}).Return([]interface{}{1, 2}, nil).Once()
+	adapter.On("InsertAll", From("users"), mock.Anything, mutates, OnConflict{}).Return([]any{1, 2}, nil).Once()
 
 	assert.Nil(t, repo.InsertAll(context.TODO(), &users))
 	assert.Equal(t, []User{
@@ -1205,7 +1205,7 @@ func TestRepository_InsertAll_compositePrimaryFields(t *testing.T) {
 		}
 	)
 
-	adapter.On("InsertAll", From("user_roles"), mock.Anything, mutates, OnConflict{}).Return([]interface{}{0, 0}, nil).Once()
+	adapter.On("InsertAll", From("user_roles"), mock.Anything, mutates, OnConflict{}).Return([]any{0, 0}, nil).Once()
 
 	assert.Nil(t, repo.InsertAll(context.TODO(), &userRoles))
 	assert.Equal(t, []UserRole{
@@ -1240,7 +1240,7 @@ func TestRepository_InsertAll_ptrElem(t *testing.T) {
 		}
 	)
 
-	adapter.On("InsertAll", From("users"), mock.Anything, mutates, OnConflict{}).Return([]interface{}{1, 2}, nil).Once()
+	adapter.On("InsertAll", From("users"), mock.Anything, mutates, OnConflict{}).Return([]any{1, 2}, nil).Once()
 
 	assert.Nil(t, repo.InsertAll(context.TODO(), &users))
 	assert.Equal(t, []*User{
@@ -1730,7 +1730,7 @@ func TestRepository_Update_saveHasMany(t *testing.T) {
 
 	adapter.On("Begin").Return(nil).Once()
 	adapter.On("Update", From("users").Where(Eq("id", 10)), "id", mock.Anything).Return(1, nil).Once()
-	adapter.On("InsertAll", From("user_roles"), mock.Anything, mock.Anything, OnConflict{}).Return([]interface{}(nil), nil).Once()
+	adapter.On("InsertAll", From("user_roles"), mock.Anything, mock.Anything, OnConflict{}).Return([]any(nil), nil).Once()
 	adapter.On("Commit").Return(nil).Once()
 
 	assert.Nil(t, repo.Update(context.TODO(), &user))
@@ -2188,8 +2188,8 @@ func TestRepository_saveHasMany_insert(t *testing.T) {
 		q = Build("emails")
 	)
 
-	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates, OnConflict{}).Return([]interface{}{2, 3}, nil).Maybe()
-	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates, OnConflict{}).Return([]interface{}{2, 3}, nil).Maybe()
+	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates, OnConflict{}).Return([]any{2, 3}, nil).Maybe()
+	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates, OnConflict{}).Return([]any{2, 3}, nil).Maybe()
 
 	assert.Nil(t, repo.(*repository).saveHasMany(cw, doc, &mutation, true))
 	assert.Equal(t, User{
@@ -2226,8 +2226,8 @@ func TestRepository_saveHasMany_insertError(t *testing.T) {
 		err = errors.New("insert all error")
 	)
 
-	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates, OnConflict{}).Return([]interface{}{}, err).Maybe()
-	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates, OnConflict{}).Return([]interface{}{}, err).Maybe()
+	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates, OnConflict{}).Return([]any{}, err).Maybe()
+	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates, OnConflict{}).Return([]any{}, err).Maybe()
 
 	assert.Equal(t, err, repo.(*repository).saveHasMany(cw, doc, &mutation, true))
 
@@ -2263,7 +2263,7 @@ func TestRepository_saveHasMany_update(t *testing.T) {
 		q = Build("emails")
 	)
 
-	mutation.SetDeletedIDs("emails", []interface{}{2})
+	mutation.SetDeletedIDs("emails", []any{2})
 
 	adapter.On("Delete", q.Where(Eq("user_id", 1).AndIn("id", 2))).Return(1, nil).Once()
 	adapter.On("Update", q.Where(Eq("id", 1).AndEq("user_id", 1)), "id", mutates[0]).Return(1, nil).Once()
@@ -2302,7 +2302,7 @@ func TestRepository_saveHasMany_updateInconsistentReferences(t *testing.T) {
 		)
 	)
 
-	mutation.SetDeletedIDs("emails", []interface{}{})
+	mutation.SetDeletedIDs("emails", []any{})
 
 	assert.Equal(t, ConstraintError{
 		Key:  "user_id",
@@ -2339,7 +2339,7 @@ func TestRepository_saveHasMany_updateError(t *testing.T) {
 		err = errors.New("update error")
 	)
 
-	mutation.SetDeletedIDs("emails", []interface{}{})
+	mutation.SetDeletedIDs("emails", []any{})
 
 	adapter.On("Update", q.Where(Eq("id", 1).AndEq("user_id", 1)), "id", mutates[0]).Return(0, err).Once()
 
@@ -2376,8 +2376,8 @@ func TestRepository_saveHasMany_updateWithInsert(t *testing.T) {
 	)
 
 	adapter.On("Update", q.Where(Eq("id", 1).AndEq("user_id", 1)), "id", mutates[0]).Return(1, nil).Once()
-	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates[1:], OnConflict{}).Return([]interface{}{2}, nil).Maybe()
-	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates[1:], OnConflict{}).Return([]interface{}{2}, nil).Maybe()
+	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates[1:], OnConflict{}).Return([]any{2}, nil).Maybe()
+	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates[1:], OnConflict{}).Return([]any{2}, nil).Maybe()
 
 	assert.Nil(t, repo.(*repository).saveHasMany(cw, doc, &mutation, false))
 	assert.Equal(t, User{
@@ -2399,7 +2399,7 @@ func TestRepository_saveHasMany_updateWithReorderInsert(t *testing.T) {
 		user    = User{
 			ID: 1,
 			Emails: []Email{
-				{Email: "email1@gmail.com"}, // new record not appended, but prepended/inserted
+				{Email: "email1@gmail.com"}, // new entity not appended, but prepended/inserted
 				{ID: 1, UserID: 1, Email: "email2@gmail.com"},
 			},
 		}
@@ -2417,11 +2417,11 @@ func TestRepository_saveHasMany_updateWithReorderInsert(t *testing.T) {
 		Apply(NewDocument(&user.Emails[0]), Set("email", "new@gmail.com")),
 		Apply(NewDocument(&user.Emails[1]), Set("email", "update@gmail.com")),
 	)
-	mutation.SetDeletedIDs("emails", []interface{}{})
+	mutation.SetDeletedIDs("emails", []any{})
 
 	adapter.On("Update", q.Where(Eq("id", 1).AndEq("user_id", 1)), "id", mutates[0]).Return(1, nil).Once()
-	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates[1:], OnConflict{}).Return([]interface{}{2}, nil).Maybe()
-	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates[1:], OnConflict{}).Return([]interface{}{2}, nil).Maybe()
+	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates[1:], OnConflict{}).Return([]any{2}, nil).Maybe()
+	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates[1:], OnConflict{}).Return([]any{2}, nil).Maybe()
 
 	assert.Nil(t, repo.(*repository).saveHasMany(cw, doc, &mutation, false))
 	assert.Equal(t, User{
@@ -2466,8 +2466,8 @@ func TestRepository_saveHasMany_deleteWithInsert(t *testing.T) {
 	)
 
 	adapter.On("Delete", q.Where(Eq("user_id", 1).AndIn("id", 1, 2))).Return(1, nil).Once()
-	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates, OnConflict{}).Return([]interface{}{3, 4, 5}, nil).Maybe()
-	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates, OnConflict{}).Return([]interface{}{3, 4, 5}, nil).Maybe()
+	adapter.On("InsertAll", q, []string{"email", "user_id"}, mutates, OnConflict{}).Return([]any{3, 4, 5}, nil).Maybe()
+	adapter.On("InsertAll", q, []string{"user_id", "email"}, mutates, OnConflict{}).Return([]any{3, 4, 5}, nil).Maybe()
 
 	assert.Nil(t, repo.(*repository).saveHasMany(cw, doc, &mutation, false))
 	assert.Equal(t, User{
@@ -2716,13 +2716,13 @@ func TestRepository_Delete_invalidFieldType(t *testing.T) {
 	var (
 		adapter = &testAdapter{}
 		repo    = New(adapter)
-		record  = InvalidField{ID: 1}
-		query   = From("invalid_fields").Where(Eq("id", record.ID))
+		entity  = InvalidField{ID: 1}
+		query   = From("invalid_fields").Where(Eq("id", entity.ID))
 	)
 
 	adapter.On("Delete", query).Return(1, nil).Once()
 
-	assert.Nil(t, repo.Delete(context.TODO(), &record))
+	assert.Nil(t, repo.Delete(context.TODO(), &entity))
 
 	adapter.AssertExpectations(t)
 }
@@ -3052,7 +3052,7 @@ func TestRepository_Preload_hasOne(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Once()
-	cur.MockScan(address.ID, *address.UserID).Times(2)
+	cur.MockScan(address.ID, *address.UserID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &user, "address"))
@@ -3118,7 +3118,7 @@ func TestRepository_Preload_ptrHasOne(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Once()
-	cur.MockScan(address.ID, *address.UserID).Times(2)
+	cur.MockScan(address.ID, *address.UserID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &user, "work_address"))
@@ -3168,8 +3168,8 @@ func TestRepository_Preload_sliceHasOne(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(addresses[0].ID, *addresses[0].UserID).Twice()
-	cur.MockScan(addresses[1].ID, *addresses[1].UserID).Twice()
+	cur.MockScan(addresses[0].ID, *addresses[0].UserID).Once()
+	cur.MockScan(addresses[1].ID, *addresses[1].UserID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &users, "address"))
@@ -3199,8 +3199,8 @@ func TestRepository_Preload_ptrSliceHasOne(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(addresses[0].ID, *addresses[0].UserID).Twice()
-	cur.MockScan(addresses[1].ID, *addresses[1].UserID).Twice()
+	cur.MockScan(addresses[0].ID, *addresses[0].UserID).Once()
+	cur.MockScan(addresses[1].ID, *addresses[1].UserID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &users, "work_address"))
@@ -3250,7 +3250,7 @@ func TestRepository_Preload_nestedHasOne(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Once()
-	cur.MockScan(address.ID, *address.UserID).Twice()
+	cur.MockScan(address.ID, *address.UserID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &transaction, "buyer.address"))
@@ -3276,7 +3276,7 @@ func TestRepository_Preload_ptrNestedHasOne(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Once()
-	cur.MockScan(address.ID, *address.UserID).Twice()
+	cur.MockScan(address.ID, *address.UserID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &transaction, "buyer.work_address"))
@@ -3331,8 +3331,8 @@ func TestRepository_Preload_sliceNestedHasOne(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(addresses[0].ID, *addresses[0].UserID).Twice()
-	cur.MockScan(addresses[1].ID, *addresses[1].UserID).Twice()
+	cur.MockScan(addresses[0].ID, *addresses[0].UserID).Once()
+	cur.MockScan(addresses[1].ID, *addresses[1].UserID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &transactions, "buyer.address"))
@@ -3365,8 +3365,8 @@ func TestRepository_Preload_ptrSliceNestedHasOne(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(addresses[0].ID, *addresses[0].UserID).Twice()
-	cur.MockScan(addresses[1].ID, *addresses[1].UserID).Twice()
+	cur.MockScan(addresses[0].ID, *addresses[0].UserID).Once()
+	cur.MockScan(addresses[1].ID, *addresses[1].UserID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &transactions, "buyer.work_address"))
@@ -3420,8 +3420,8 @@ func TestRepository_Preload_hasMany(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Twice()
-	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Twice()
+	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Once()
+	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &user, "transactions"))
@@ -3451,10 +3451,10 @@ func TestRepository_Preload_sliceHasMany(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Times(4)
-	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Twice()
-	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Twice()
-	cur.MockScan(transactions[2].ID, transactions[2].BuyerID).Twice()
-	cur.MockScan(transactions[3].ID, transactions[3].BuyerID).Twice()
+	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Once()
+	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Once()
+	cur.MockScan(transactions[2].ID, transactions[2].BuyerID).Once()
+	cur.MockScan(transactions[3].ID, transactions[3].BuyerID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &users, "transactions"))
@@ -3483,8 +3483,8 @@ func TestRepository_Preload_nestedHasMany(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Twice()
-	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Twice()
+	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Once()
+	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &address, "user.transactions"))
@@ -3530,10 +3530,10 @@ func TestRepository_Preload_nestedSliceHasMany(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Times(4)
-	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Twice()
-	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Twice()
-	cur.MockScan(transactions[2].ID, transactions[2].BuyerID).Twice()
-	cur.MockScan(transactions[3].ID, transactions[3].BuyerID).Twice()
+	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Once()
+	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Once()
+	cur.MockScan(transactions[2].ID, transactions[2].BuyerID).Once()
+	cur.MockScan(transactions[3].ID, transactions[3].BuyerID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &addresses, "user.transactions"))
@@ -3567,9 +3567,9 @@ func TestRepository_Preload_nestedNullSliceHasMany(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "user_id"}, nil).Once()
 	cur.On("Next").Return(true).Times(3)
-	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Twice()
-	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Twice()
-	cur.MockScan(transactions[2].ID, transactions[2].BuyerID).Twice()
+	cur.MockScan(transactions[0].ID, transactions[0].BuyerID).Once()
+	cur.MockScan(transactions[1].ID, transactions[1].BuyerID).Once()
+	cur.MockScan(transactions[2].ID, transactions[2].BuyerID).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &addresses, "user.transactions"))
@@ -3595,7 +3595,7 @@ func TestRepository_Preload_belongsTo(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "name"}, nil).Once()
 	cur.On("Next").Return(true).Once()
-	cur.MockScan(user.ID, user.Name).Twice()
+	cur.MockScan(user.ID, user.Name).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &transaction, "buyer"))
@@ -3619,7 +3619,7 @@ func TestRepository_Preload_ptrBelongsTo(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "name"}, nil).Once()
 	cur.On("Next").Return(true).Once()
-	cur.MockScan(user.ID, user.Name).Twice()
+	cur.MockScan(user.ID, user.Name).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &address, "user"))
@@ -3685,8 +3685,8 @@ func TestRepository_Preload_sliceBelongsTo(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "name"}, nil).Once()
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(users[0].ID, users[0].Name).Twice()
-	cur.MockScan(users[1].ID, users[1].Name).Twice()
+	cur.MockScan(users[0].ID, users[0].Name).Once()
+	cur.MockScan(users[1].ID, users[1].Name).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &transactions, "buyer"))
@@ -3718,8 +3718,8 @@ func TestRepository_Preload_ptrSliceBelongsTo(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "name"}, nil).Once()
 	cur.On("Next").Return(true).Twice()
-	cur.MockScan(users[0].ID, users[0].Name).Twice()
-	cur.MockScan(users[1].ID, users[1].Name).Twice()
+	cur.MockScan(users[0].ID, users[0].Name).Once()
+	cur.MockScan(users[1].ID, users[1].Name).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &addresses, "user"))
@@ -3780,7 +3780,7 @@ func TestRepository_Preload_sliceNestedBelongsTo(t *testing.T) {
 	cur.On("Close").Return(nil).Once()
 	cur.On("Fields").Return([]string{"id", "street"}, nil).Once()
 	cur.On("Next").Return(true).Once()
-	cur.MockScan(address.ID, address.Street).Twice()
+	cur.MockScan(address.ID, address.Street).Once()
 	cur.On("Next").Return(false).Once()
 
 	assert.Nil(t, repo.Preload(context.TODO(), &users, "transactions.address"))
@@ -3916,8 +3916,8 @@ func TestRepository_Exec(t *testing.T) {
 		adapter = &testAdapter{}
 		repo    = New(adapter)
 		query   = "UPDATE users SET something = ? WHERE something2 = ?;"
-		args    = []interface{}{3, "sdfds"}
-		rets    = []interface{}{1, 2, nil}
+		args    = []any{3, "sdfds"}
+		rets    = []any{1, 2, nil}
 	)
 
 	adapter.On("Exec", context.TODO(), query, args).Return(rets...).Once()
@@ -3935,8 +3935,8 @@ func TestRepository_MustExec(t *testing.T) {
 		adapter = &testAdapter{}
 		repo    = New(adapter)
 		query   = "UPDATE users SET something = ? WHERE something2 = ?;"
-		args    = []interface{}{3, "sdfds"}
-		rets    = []interface{}{1, 2, nil}
+		args    = []any{3, "sdfds"}
+		rets    = []any{1, 2, nil}
 	)
 
 	adapter.On("Exec", context.TODO(), query, args).Return(rets...).Once()

@@ -8,7 +8,7 @@ import (
 
 // Document provides an abstraction over reflect to easily works with struct for database purpose.
 type Document struct {
-	v    interface{}
+	v    any
 	rv   reflect.Value
 	rt   reflect.Type
 	meta DocumentMeta
@@ -37,7 +37,7 @@ func (d Document) PrimaryField() string {
 }
 
 // PrimaryValues of this document.
-func (d Document) PrimaryValues() []interface{} {
+func (d Document) PrimaryValues() []any {
 	if p, ok := d.v.(primary); ok {
 		return p.PrimaryValues()
 	}
@@ -47,7 +47,7 @@ func (d Document) PrimaryValues() []interface{} {
 	}
 
 	var (
-		pValues = make([]interface{}, len(d.meta.primaryIndex))
+		pValues = make([]any, len(d.meta.primaryIndex))
 	)
 
 	for i := range pValues {
@@ -59,7 +59,7 @@ func (d Document) PrimaryValues() []interface{} {
 
 // PrimaryValue of this document.
 // panic if document uses composite key.
-func (d Document) PrimaryValue() interface{} {
+func (d Document) PrimaryValue() any {
 	if values := d.PrimaryValues(); len(values) == 1 {
 		return values[0]
 	}
@@ -98,11 +98,11 @@ func (d Document) Type(field string) (reflect.Type, bool) {
 }
 
 // Value returns value of given field. if field does not exist, second returns value will be false.
-func (d Document) Value(field string) (interface{}, bool) {
+func (d Document) Value(field string) (any, bool) {
 	if i, ok := d.meta.index[field]; ok {
 
 		var (
-			value interface{}
+			value any
 			fv    = reflectValueFieldByIndex(d.rv, i, false)
 			ft    = fv.Type()
 		)
@@ -122,7 +122,7 @@ func (d Document) Value(field string) (interface{}, bool) {
 }
 
 // SetValue of the field, it returns false if field does not exist, or it's not assignable.
-func (d Document) SetValue(field string, value interface{}) bool {
+func (d Document) SetValue(field string, value any) bool {
 	if i, ok := d.meta.index[field]; ok {
 		var (
 			rv reflect.Value
@@ -160,9 +160,9 @@ func (d Document) SetValue(field string, value interface{}) bool {
 }
 
 // Scanners returns slice of sql.Scanner for given fields.
-func (d Document) Scanners(fields []string) []interface{} {
+func (d Document) Scanners(fields []string) []any {
 	var (
-		result    = make([]interface{}, len(fields))
+		result    = make([]any, len(fields))
 		assocRefs map[string]struct {
 			fields  []string
 			indexes []int
@@ -261,15 +261,27 @@ func (d Document) association(name string) (Association, bool) {
 func (d Document) Reset() {
 }
 
-// Add returns this document.
-func (d *Document) Add() *Document {
-	// if d.rv is a null pointer, set it to a new struct.
+// NewDocument returns new document with zero values.
+func (d Document) NewDocument() *Document {
+	return newZeroDocument(d.rt)
+}
+
+// Append is alias for Assign for compatibility with internal slice interface
+func (d *Document) Append(o *Document) {
+	d.Assign(o)
+}
+
+// Assign document value to this document.
+func (d *Document) Assign(o *Document) {
 	if d.rv.Kind() == reflect.Ptr && d.rv.IsNil() {
-		d.rv.Set(reflect.New(d.rv.Type().Elem()))
+		d.rv.Set(o.rv.Addr())
 		d.rv = d.rv.Elem()
+	} else {
+		d.rv.Set(o.rv)
 	}
 
-	return d
+	d.meta = o.meta
+	d.v = o.v
 }
 
 // Get always returns this document, this is a noop for compatibility with collection.
@@ -294,8 +306,8 @@ func (d Document) Flag(flag DocumentFlag) bool {
 
 // NewDocument used to create abstraction to work with struct.
 // Document can be created using interface or reflect.Value.
-func NewDocument(record interface{}, readonly ...bool) *Document {
-	switch v := record.(type) {
+func NewDocument(entity any, readonly ...bool) *Document {
+	switch v := entity.(type) {
 	case *Document:
 		return v
 	case reflect.Value:
@@ -309,7 +321,7 @@ func NewDocument(record interface{}, readonly ...bool) *Document {
 	}
 }
 
-func newDocument(v interface{}, rv reflect.Value, readonly bool) *Document {
+func newDocument(v any, rv reflect.Value, readonly bool) *Document {
 	var (
 		rt = rv.Type()
 	)
@@ -335,4 +347,15 @@ func newDocument(v interface{}, rv reflect.Value, readonly bool) *Document {
 		rt:   rt,
 		meta: getDocumentMeta(rt, false),
 	}
+}
+
+func newZeroDocument(rt reflect.Type) *Document {
+	if rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+	}
+
+	rv := reflect.New(rt)
+	rv.Elem().Set(reflect.Zero(rt))
+
+	return NewDocument(rv)
 }
