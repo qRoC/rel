@@ -47,9 +47,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestRepository_Instrumentation(t *testing.T) {
-	var (
-		repo = repository{rootAdapter: &testAdapter{}}
-	)
+	repo := repository{rootAdapter: &testAdapter{}}
 
 	assert.Nil(t, repo.instrumenter)
 	assert.NotPanics(t, func() {
@@ -72,6 +70,18 @@ func TestRepository_Ping(t *testing.T) {
 	adapter.On("Ping").Return(nil).Once()
 
 	assert.Nil(t, repo.Ping(context.TODO()))
+	adapter.AssertExpectations(t)
+}
+
+func TestRepository_AdapterName(t *testing.T) {
+	var (
+		adapter = &testAdapter{}
+		repo    = New(adapter)
+	)
+
+	adapter.On("Name").Return("test").Once()
+
+	assert.Equal(t, "test", repo.Adapter(context.TODO()).Name())
 	adapter.AssertExpectations(t)
 }
 
@@ -1451,6 +1461,61 @@ func TestRepository_Update_lockVersion(t *testing.T) {
 	// unscoped
 	adapter.On("Update", baseQueries.Unscoped(), "id", unscopedMutates).Return(1, nil).Once()
 	assert.Nil(t, repo.Update(context.TODO(), &transaction, Set("item", "new item"), Unscoped(true)))
+
+	adapter.AssertExpectations(t)
+}
+
+func TestRepository_Update_embed(t *testing.T) {
+	type Base struct {
+		Id string
+	}
+
+	type Audited struct {
+		Base
+		CreatedAt time.Time
+		UpdatedAt time.Time
+	}
+
+	type Contact struct {
+		Audited
+		Name string
+	}
+
+	var (
+		adapter = &testAdapter{}
+		repo    = New(adapter)
+		contact = Contact{
+			Audited: Audited{
+				Base: Base{
+					Id: "1",
+				},
+				CreatedAt: Now(),
+				UpdatedAt: Now(),
+			},
+			Name: "name",
+		}
+		mutates = map[string]Mutate{
+			"id":         Set("id", "1"),
+			"name":       Set("name", "name"),
+			"created_at": Set("created_at", Now()),
+			"updated_at": Set("updated_at", Now()),
+		}
+		queries = From("contacts").Where(Eq("id", contact.Id))
+	)
+
+	adapter.On("Update", queries, "id", mutates).Return(1, nil).Once()
+
+	assert.Nil(t, repo.Update(context.TODO(), &contact))
+	assert.Equal(t, Contact{
+		Audited: Audited{
+			Base: Base{
+				Id: "1",
+			},
+			CreatedAt: Now(),
+			UpdatedAt: Now(),
+		},
+		Name: "name",
+	}, contact)
 
 	adapter.AssertExpectations(t)
 }
