@@ -588,3 +588,19 @@ func TestChangeset_hasMany(t *testing.T) {
 		}, Apply(doc, changeset))
 	})
 }
+
+func TestChangeset_immutableNilField(t *testing.T) {
+	type Inner struct {
+		ID [1]byte `db:",primary"`
+	}
+
+	s := struct {
+		ID    [1]byte `db:",primary"`
+		Value *Inner  `ref:"id" fk:"id"`
+	}{}
+
+	assert.Nil(t, s.Value)
+	changeset2 := NewChangeset(&s)
+	assert.Nil(t, s.Value)
+	assert.Len(t, changeset2.Changes(), 0)
+}
