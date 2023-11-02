@@ -194,7 +194,7 @@ func newChangeset(doc *Document) Changeset {
 }
 
 func initChangesetAssoc(doc *Document, assoc map[string]Changeset, field string) {
-	doc, loaded := doc.Association(field).Document()
+	doc, loaded := doc.Association(field).LazyDocument()
 	if !loaded {
 		return
 	}
